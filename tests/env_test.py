@@ -1,4 +1,5 @@
 import multiprocessing
+from collections import deque
 from os import path
 from PIL import Image
 import cv2
@@ -24,14 +25,15 @@ max_env_steps = 111056
 
 time_obs = []
 
+deque_frames = deque([], maxlen=4)
 frames = []
 
-for i in range(2):
+for i in range(max_env_steps):
     # env.render()
     action = env.action_space.sample()  # your agent here (this takes random actions)
 
     # frames.append(Image.fromarray(observation[-1]))
-    # path = '../genome_plots/'
+    path = '../genome_plots/'
 
     # img = Image.fromarray(observation[:, :, 0])
     # img.save(path + str(env.current_step) + '.png')
@@ -39,7 +41,15 @@ for i in range(2):
     # env.plot_renko(path=path)
 
     start = time.time()
-    observation, reward, done, info = env.step(action)
+    try:
+        observation, reward, done, info = env.step(action)
+        deque_frames.append(Image.fromarray(observation[:,:,-1]))
+    except:
+        print("Error at step: ", env.current_step)
+        for i in range(4):
+            img = deque_frames[i]
+            img.save(path + str(i) + '.png')
+        break
     # print(len(observation), observation.shape)
     # print(np.unique(observation))
     end = time.time()

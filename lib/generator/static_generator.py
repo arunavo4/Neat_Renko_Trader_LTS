@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import sys
 
 
 class StaticExchange:
@@ -7,7 +8,8 @@ class StaticExchange:
 
     def __init__(self, **kwargs):
         self.data_frame = pd.DataFrame()
-        self.file_name = '/home/skywalker/PycharmProjects/Trader_LTS/data/ADANIPORTS-EQ.csv'
+        parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        self.file_name = os.path.join(parent_dir, 'data', 'dataset', 'ADANIPORTS-EQ.csv')
         self.reset()
 
     def load_csv(self):

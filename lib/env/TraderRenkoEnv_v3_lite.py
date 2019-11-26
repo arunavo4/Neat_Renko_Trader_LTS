@@ -65,7 +65,7 @@ class StockTradingEnv(gym.Env):
 
         self.initial_balance = 10000
 
-        self.exchange = FBMExchange()
+        self.exchange = StaticExchange()
 
         self.enable_logging = config['enable_env_logging']
         if self.enable_logging:
@@ -241,7 +241,8 @@ class StockTradingEnv(gym.Env):
 
         spread_of_i = max(values_of_i) - min(values_of_i)
 
-        dist_btw_min_i = init_i - min(values_of_i)
+        # To compensate for zero {init_i - (min(values_of_i) + 1)}
+        dist_btw_min_i = init_i - min(values_of_i) if min(values_of_i) > 0 else init_i - (min(values_of_i) + 1)
 
         i = int((color_graph.shape[0] - spread_of_i) / 2) + dist_btw_min_i
         color_graph[i, 0] = fill_color[1] if renko_graph_directions[0] == 1 else fill_color[0]
@@ -280,8 +281,7 @@ class StockTradingEnv(gym.Env):
             else:
                 break
 
-        self.frames.append(
-            self._transform_obs(self._generate_color_graph(), width=self.obs_window, height=self.obs_window))
+        self.frames.append(self._transform_obs(self._generate_color_graph()))
         return self._get_ob()
 
     def _transform_obs(self, obs, resize=False, width=32, height=32, binary=False):
