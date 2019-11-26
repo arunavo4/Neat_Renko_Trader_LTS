@@ -10,7 +10,7 @@ import pandas as pd
 import numpy as np
 
 env_config = {
-    "enable_env_logging": True,
+    "enable_env_logging": False,
     "look_back_window_size": 375 * 10,
     "observation_window": 32,
     "frame_stack_size": 1,
@@ -20,27 +20,28 @@ env = StockTradingEnv(env_config)
 
 observation = env.reset()
 
-max_env_steps = 1000
+max_env_steps = 111056
 
 time_obs = []
 
 frames = []
 
-for i in range(10):
+for i in range(2):
     # env.render()
     action = env.action_space.sample()  # your agent here (this takes random actions)
 
     # frames.append(Image.fromarray(observation[-1]))
-    path = '../genome_plots/'
-    # #
-    img = Image.fromarray(observation[:, :, 0])
-    img.save(path + str(env.current_step) + '.png')
+    # path = '../genome_plots/'
+
+    # img = Image.fromarray(observation[:, :, 0])
+    # img.save(path + str(env.current_step) + '.png')
 
     # env.plot_renko(path=path)
 
     start = time.time()
     observation, reward, done, info = env.step(action)
-    print(len(observation), observation.shape)
+    # print(len(observation), observation.shape)
+    # print(np.unique(observation))
     end = time.time()
 
     time_obs.append(end - start)

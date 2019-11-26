@@ -257,6 +257,7 @@ class StockTradingEnv(gym.Env):
         obs = np.zeros([self.obs_window, self.obs_window, self.stack_size], dtype=np.uint8)
         for i in range(self.stack_size):
             obs[:, :, i] = self.frames[i]
+        obs = np.ndarray.flatten(obs)
         return obs
 
     def _next_observation(self):
@@ -268,16 +269,19 @@ class StockTradingEnv(gym.Env):
                     self.current_step += 1
                     # Automatically perform hold
                     self._take_action(action=0)
-                    self.logger.info("{} Auto Hold : Renko_bars: {} : Brick_size: {}".format(self._current_timestamp(),
-                                                                                             new_renko_bars,
-                                                                                             self.brick_size))
+                    if self.enable_logging:
+                        self.logger.info(
+                            "{} Auto Hold : Renko_bars: {} : Brick_size: {}".format(self._current_timestamp(),
+                                                                                    new_renko_bars,
+                                                                                    self.brick_size))
                 else:
                     self.done = True
                     break
             else:
                 break
 
-        self.frames.append(self._transform_obs(self._generate_color_graph(),width=self.obs_window,height=self.obs_window))
+        self.frames.append(
+            self._transform_obs(self._generate_color_graph(), width=self.obs_window, height=self.obs_window))
         return self._get_ob()
 
     def _transform_obs(self, obs, resize=False, width=32, height=32, binary=False):
