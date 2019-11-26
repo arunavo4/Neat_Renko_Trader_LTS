@@ -1,21 +1,17 @@
 """
-Makes possible reporter classes,
-which are triggered on particular events and may provide information to the user,
-may do something else such as checkpointing, or may do both.
+Implementation of reporter classes, which are triggered on particular events. Reporters
+are generally intended to  provide information to the user, store checkpoints, etc.
 """
 from __future__ import division, print_function
 
 import time
-
-from neat.math_util import mean, stdev
-from neat.six_util import itervalues, iterkeys
-
-
-# logging
-# importing module
 import logging
 
+from neat.math_util import mean, stdev
+
+
 formatter = logging.Formatter('%(message)s')
+
 
 def setup_logger(name, log_file, level=logging.INFO):
     """Function setup as many loggers as you want"""
@@ -108,7 +104,7 @@ class BaseReporter(object):
         pass
 
 
-class LoggerReporter(BaseReporter):
+class StdOutReporter(BaseReporter):
     """Uses `logger.info` to output information about the run; an example reporter class."""
     def __init__(self, show_species_detail):
         self.show_species_detail = show_species_detail
@@ -127,11 +123,9 @@ class LoggerReporter(BaseReporter):
         ns = len(species_set.species)
         if self.show_species_detail:
             logger.info('Population of {0:d} members in {1:d} species:'.format(ng, ns))
-            sids = list(iterkeys(species_set.species))
-            sids.sort()
             logger.info("   ID   age  size  fitness  adj fit  stag")
             logger.info("  ====  ===  ====  =======  =======  ====")
-            for sid in sids:
+            for sid in sorted(species_set.species):
                 s = species_set.species[sid]
                 a = self.generation - s.created
                 n = len(s.members)
@@ -155,7 +149,7 @@ class LoggerReporter(BaseReporter):
 
     def post_evaluate(self, config, population, species, best_genome):
         # pylint: disable=no-self-use
-        fitnesses = [c.fitness for c in itervalues(population)]
+        fitnesses = [c.fitness for c in population.values()]
         fit_mean = mean(fitnesses)
         fit_std = stdev(fitnesses)
         best_species_id = species.get_species_id(best_genome.key)
