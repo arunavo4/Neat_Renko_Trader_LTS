@@ -80,11 +80,12 @@ def run(n_generations, n_processes):
     if resume:
         pop = neat.Checkpointer.restore_checkpoint(restore_file)
     else:
-        while True:
-            pop = neat.Population(config)
-
-            if 10 >= len(pop.species.species) > 3:
-                break
+        pop = neat.Population(config)
+        # while True:
+        #     pop = neat.Population(config)
+        #
+        #     if 10 >= len(pop.species.species) > 3:
+        #         break
 
     stats = neat.StatisticsReporter()
     pop.add_reporter(stats)
@@ -105,4 +106,4 @@ def run(n_generations, n_processes):
 
 
 if __name__ == "__main__":
-        run(n_generations=2, n_processes=10)
+        run(n_generations=2, n_processes=24)
