@@ -38,7 +38,6 @@ def stdev(values):
 
 
 def softmax(values):
-    values = list(values)
     """
     Compute the softmax of the given value set, v_i = exp(v_i) / s,
     where s = sum(exp(v_0), exp(v_1), ..)."""
