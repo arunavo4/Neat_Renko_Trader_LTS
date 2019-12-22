@@ -83,6 +83,7 @@ class USStockEnv(gym.Env):
         self.renko_prices = []
         self.renko_directions = []
         self.brick_size = 10.0
+        self.brick_size_per = 0.0
 
         # Leverage
         self.leverage = 1
@@ -287,9 +288,8 @@ class USStockEnv(gym.Env):
                     # Automatically perform hold
                     if self.enable_logging:
                         self.logger.info(
-                            "{} Auto Hold : Renko_bars: {} : Brick_size: {}".format(self._current_timestamp(),
-                                                                                    new_renko_bars,
-                                                                                    self.brick_size))
+                            "{} Auto Hold : Renko_bars: {} : Brick_size: {} : Brick_size_per: {}".format(
+                                self._current_timestamp(), new_renko_bars, self.brick_size, self.brick_size_per))
 
                     self._is_auto_hold = True
                     self._take_action(action=0)
@@ -531,10 +531,13 @@ class USStockEnv(gym.Env):
                         round(self.profits, 2),
                         round(self.profit_per, 3), ))
 
-        # clip reward {-1 , 1}
-        reward = np.sign(reward)
+        # clip reward
+        reward = round(self.clip_reward(reward), 3)
 
         return reward
+
+    def clip_reward(self, reward):
+        return reward / self.brick_size_per
 
     def _done(self):
         self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(
@@ -552,9 +555,16 @@ class USStockEnv(gym.Env):
         past_data = self.exchange.data_frame[-self.look_back_window_size + current_idx:current_idx]
 
         self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))
+        self.brick_size_per = (self.brick_size/self._current_price()) * 100
 
     def reset(self):
         self.balance = self.initial_balance
+        self.source_prices = []
+        self.renko_prices = []
+        self.renko_directions = []
+        self.brick_size = 10.0
+        self.brick_size_per = 0.0
+
         self.frames.clear()
 
         if int(self.look_back_window_size / 390) > 1:
