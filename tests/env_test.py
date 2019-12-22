@@ -1,59 +1,50 @@
 import multiprocessing
-from collections import deque
 from os import path
 from PIL import Image
 import cv2
 import gym
 import time
 from statistics import mean
-from lib.env.TraderRenkoEnv_v3_lite import StockTradingEnv
-import pandas as pd
-import numpy as np
+from lib.env.USStockEnv import USStockEnv
+from lib.env.IndianStockEnv import IndianStockEnv
 
 env_config = {
-    "enable_env_logging": False,
-    "look_back_window_size": 375 * 10,
+    "initial_balance": 10000,
+    "look_back_window_size": 10,
+    "enable_env_logging": True,
     "observation_window": 32,
     "frame_stack_size": 1,
+    "use_leverage": False,
+    "hold_reward": False,
 }
 
-env = StockTradingEnv(env_config)
+env = IndianStockEnv(env_config)
 
 observation = env.reset()
 
-max_env_steps = 111056
+max_env_steps = 0
 
 time_obs = []
 
-deque_frames = deque([], maxlen=4)
 frames = []
 
-for i in range(max_env_steps):
+while True:
     # env.render()
     action = env.action_space.sample()  # your agent here (this takes random actions)
 
     # frames.append(Image.fromarray(observation[-1]))
-    path = '../genome_plots/'
-
-    # img = Image.fromarray(observation[:, :, 0])
+    # path = '../output/'
+    #
+    # img = Image.fromarray(observation[:, :, -1])
     # img.save(path + str(env.current_step) + '.png')
 
     # env.plot_renko(path=path)
 
     start = time.time()
-    try:
-        observation, reward, done, info = env.step(action)
-        deque_frames.append(Image.fromarray(observation[:,:,-1]))
-    except:
-        print("Error at step: ", env.current_step)
-        for i in range(4):
-            img = deque_frames[i]
-            img.save(path + str(i) + '.png')
-        break
+    observation, reward, done, info = env.step(action)
     # print(len(observation), observation.shape)
-    # print(np.unique(observation))
     end = time.time()
-
+    max_env_steps += 1
     time_obs.append(end - start)
 
     # print("###############################")
@@ -64,7 +55,7 @@ for i in range(max_env_steps):
     # print("###############################")
 
     if done:
-        observation = env.reset()
+        # observation = env.reset()
         break
 env.close()
 

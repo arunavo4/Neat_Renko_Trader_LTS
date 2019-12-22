@@ -115,6 +115,7 @@ class IndianStockEnv(gym.Env):
 
         self.look_back_window_size = config['look_back_window_size'] or 375 * 10
         self.obs_window = config['observation_window'] or 32
+        self.hold_reward = config['hold_reward']
 
         # Frame Stack
         self.stack_size = config['frame_stack_size'] or 1
@@ -408,7 +409,7 @@ class IndianStockEnv(gym.Env):
                     self.logger.info(self.position_record)
                     self.logger.info(message)
 
-        elif action_type == 0:  # hold
+        elif action_type == 0 and self.hold_reward:  # hold
             if len(self.positions) > 0:
                 profits = cal_profit_w_brokerage(float(current_price), mean(self.positions), self.qty)
                 profit_per_stock = profits / self.qty
@@ -551,7 +552,7 @@ class IndianStockEnv(gym.Env):
         past_data = self.exchange.data_frame[-self.look_back_window_size + current_idx:current_idx]
 
         self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))
-        self.brick_size_per = (self.brick_size/self._current_price()) * 100
+        self.brick_size_per = round((self.brick_size/self._current_price()) * 100, 4)
 
     def reset(self):
         self.balance = self.initial_balance

@@ -24,9 +24,10 @@ params = {
     "observation_window": 32,
     "frame_stack_size": 1,
     "use_leverage": False,
+    "hold_reward": False,
 }
 
-max_env_steps = 111055
+max_env_steps = 20000
 
 resume = False
 restore_file = "neat-checkpoint-0"
