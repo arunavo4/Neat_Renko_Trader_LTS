@@ -1,6 +1,13 @@
 """
-    # This Env version has Dynamically Generated Stock Data.
-    This version v2 removes all redundant codes and adds some code optimization.
+    ****** US Version of the Stock Trader ******
+    This version of the Env has specific Enhancements for Intra-day Trading
+    ***** This is the most Optimized version till date *****
+
+    ****** Important Reward Change ******
+    Moving to Simple Reward Scheme of +1 / -1.
+    This will standardize the whole Environment Experiments
+    across the different Algorithms.
+
 """
 
 # logging
@@ -14,12 +21,9 @@ import gym
 import numpy as np
 import pandas as pd
 import talib
-from PIL import Image
 from gym import spaces
 
-from lib.generator.fbm_generator import FBMExchange
 from lib.generator.static_generator import StaticExchange
-
 from lib.renko.Renko import get_optimal_box_size
 
 
@@ -53,54 +57,67 @@ def cal_profit_w_brokerage(buy_price, sell_price, qty):
 np.warnings.filterwarnings('ignore')
 
 
-class StockTradingEnv(gym.Env):
-    """A Stock trading environment for OpenAI gym"""
+class USStockEnv(gym.Env):
+    """A Stock trading environment for US Stock Market"""
     metadata = {'render.modes': ['human', 'system', 'none']}
     viewer = None
 
     def __init__(self, config):
-        super(StockTradingEnv, self).__init__()
+        super(USStockEnv, self).__init__()
 
-        self.initial_balance = 10000
+        self.initial_balance = config["initial_balance"]
 
-        self.exchange = FBMExchange()
+        # Some Market_specific config
+        config['look_back_window_size'] *= 390
+        config['market'] = 'us_mkt'
+
+        self.exchange = StaticExchange(config=config)
 
         self.enable_logging = config['enable_env_logging']
         if self.enable_logging:
             self.logger = setup_logger('env_logger', 'env.log')
             self.logger.info('Env Logger!')
 
-        # Stuff from REnko
+        # Stuff from Renko
         self.source_prices = []
         self.renko_prices = []
         self.renko_directions = []
         self.brick_size = 10.0
 
+        # Leverage
+        self.leverage = 1
+        self.use_leverage = config['use_leverage']
+
+        if self.use_leverage:
+            self.leverage = 1   # Currently disabled
+
         # Stuff from the Env Before
         self.decay_rate = 1e-2
+        self._is_auto_hold = False
         self.done = False
-        self.current_step = int(375)
-        self.t = int(0)
+        self.current_step = int(390)
         self.wins = int(0)
         self.losses = int(0)
         self.qty = int(0)
         self.short = False
         self.tradable = True
         self.market_open = True
-        self.amt = self.initial_balance
+        self.balance = self.initial_balance
         self.qty = int(0)
         self.profit_per = float(0.0)
         self.daily_profit_per = []
         self.profits = int(0)
-        self.positions = []
+        self.positions = deque([], maxlen=1)
         self.position_value = int(0)
         self.action_record = ""
         self.position_record = ""
         self.rewards = deque(np.zeros(1, dtype=float))
+        self.net_worth = deque([self.initial_balance], maxlen=1)
+        self.initial_step = self.current_step
         self.sum = 0.0
         self.denominator = np.exp(-1 * self.decay_rate)
 
-        self.look_back_window_size = config['look_back_window_size'] or 375 * 5
+        self.look_back_window_size = config['look_back_window_size'] or 390 * 10
         self.obs_window = config['observation_window'] or 84
 
         # Frame Stack
@@ -115,9 +132,9 @@ class StockTradingEnv(gym.Env):
                                             dtype=np.uint8)
 
     # Setting brick size. Auto mode is preferred, it uses history
-    def set_brick_size(self, HLC_history=None, auto=True, brick_size=10.0):
+    def set_brick_size(self, hlc_history=None, auto=True, brick_size=10.0):
         if auto:
-            self.brick_size = self.__get_optimal_brick_size(HLC_history.iloc[:, [0, 1, 2]])
+            self.brick_size = self.__get_optimal_brick_size(hlc_history.iloc[:, [0, 1, 2]])
         else:
             self.brick_size = brick_size
 
@@ -183,14 +200,15 @@ class StockTradingEnv(gym.Env):
             return self.__renko_rule(last_price)
 
     # Simple method to get optimal brick size based on ATR
-    def __get_optimal_brick_size(self, HLC_history, atr_timeperiod=14):
+    @staticmethod
+    def __get_optimal_brick_size(hlc_history, atr_timeperiod=14):
         brick_size = 0.0
 
         # If we have enough of data
-        if HLC_history.shape[0] > atr_timeperiod:
-            brick_size = np.median(talib.ATR(high=np.double(HLC_history.iloc[:, 0]),
-                                             low=np.double(HLC_history.iloc[:, 1]),
-                                             close=np.double(HLC_history.iloc[:, 2]),
+        if hlc_history.shape[0] > atr_timeperiod:
+            brick_size = np.median(talib.ATR(high=np.double(hlc_history.iloc[:, 0]),
+                                             low=np.double(hlc_history.iloc[:, 1]),
+                                             close=np.double(hlc_history.iloc[:, 2]),
                                              timeperiod=atr_timeperiod)[atr_timeperiod:])
 
         return brick_size
@@ -201,12 +219,15 @@ class StockTradingEnv(gym.Env):
     def get_renko_directions(self):
         return self.renko_directions
 
-    def resetReward(self):
-        self.rewards = deque(np.zeros(1, dtype=float))
+    def reset_reward(self):
+        self.rewards.clear()
         self.sum = 0.0
 
-    def getReward(self, reward):
-        stale_reward = self.rewards.popleft()
+    def get_reward(self, reward):
+        if len(self.rewards) == 0:
+            stale_reward = 0
+        else:
+            stale_reward = self.rewards.popleft()
         self.sum = self.sum - np.exp(-1 * self.decay_rate) * stale_reward
         self.sum = self.sum * np.exp(-1 * self.decay_rate)
         self.sum = self.sum + reward
@@ -214,12 +235,12 @@ class StockTradingEnv(gym.Env):
         return self.sum / self.denominator
 
     def set_qty(self, price):
-        self.qty = int(self.balance / price)
+        self.qty = int((self.balance * self.leverage) / price)
 
         if self.qty == 0:
             self.done = True
 
-    def _generate_color_graph(self, gap_window=4):
+    def _generate_color_graph(self, gap_window=0):
 
         renko_graph_directions = [float(i) for i in self.renko_directions]
 
@@ -239,7 +260,7 @@ class StockTradingEnv(gym.Env):
 
         spread_of_i = max(values_of_i) - min(values_of_i)
 
-        dist_btw_min_i = init_i - min(values_of_i)
+        dist_btw_min_i = init_i - min(values_of_i) if min(values_of_i) > 0 else init_i - (min(values_of_i) + 1)
 
         i = int((color_graph.shape[0] - spread_of_i) / 2) + dist_btw_min_i
         color_graph[i, 0] = fill_color[1] if renko_graph_directions[0] == 1 else fill_color[0]
@@ -252,7 +273,7 @@ class StockTradingEnv(gym.Env):
 
     def _get_ob(self):
         assert len(self.frames) == self.stack_size
-        obs = np.ones([self.obs_window, self.obs_window, self.stack_size], dtype=np.uint8)
+        obs = np.zeros([self.obs_window, self.obs_window, self.stack_size], dtype=np.uint8)
         for i in range(self.stack_size):
             obs[:, :, i] = self.frames[i]
         return obs
@@ -261,21 +282,32 @@ class StockTradingEnv(gym.Env):
         while True:
             observations = self.exchange.data_frame.iloc[self.current_step]
             new_renko_bars = self.do_next(pd.Series([observations['close']]))
-            if new_renko_bars == 0:
+            if new_renko_bars == 0 and self.market_open:
                 if self.current_step + 1 <= len(self.exchange.data_frame) - 1:
-                    self.current_step += 1
                     # Automatically perform hold
+                    if self.enable_logging:
+                        self.logger.info(
+                            "{} Auto Hold : Renko_bars: {} : Brick_size: {}".format(self._current_timestamp(),
+                                                                                    new_renko_bars,
+                                                                                    self.brick_size))
+
+                    self._is_auto_hold = True
                     self._take_action(action=0)
+                    self._is_auto_hold = False
+                    self.current_step += 1
+
                 else:
                     self.done = True
                     break
             else:
                 break
 
-        self.frames.append(self._transform_obs(self._generate_color_graph()))
+        self.frames.append(
+            self._transform_obs(self._generate_color_graph(), width=self.obs_window, height=self.obs_window))
         return self._get_ob()
 
-    def _transform_obs(self, obs, resize=False, width=84, height=84, binary=False):
+    @staticmethod
+    def _transform_obs(obs, resize=False, width=84, height=84, binary=False):
         obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
 
         if binary:
@@ -283,6 +315,7 @@ class StockTradingEnv(gym.Env):
 
         if resize:
             obs = cv2.resize(obs, (width, height), interpolation=cv2.INTER_AREA)
+
         return obs
 
     def _current_price(self):
@@ -291,8 +324,14 @@ class StockTradingEnv(gym.Env):
     def _current_timestamp(self):
         return self.exchange.data_frame.index[self.current_step]
 
-    def _current_index(self):
-        return self.current_step
+    def _current_date(self):
+        return pd.to_datetime(self._current_timestamp()).date()
+
+    def _next_date(self):
+        return pd.to_datetime(self.exchange.data_frame.index[self.current_step+1]).date()
+
+    def _is_day_over(self):
+        return self._current_date() != self._next_date()
 
     def _take_action(self, action):
         current_price = self._current_price()
@@ -303,9 +342,8 @@ class StockTradingEnv(gym.Env):
         self.position_record = ""
         self.action_record = ""
         # set next time
-        self.t = self._current_index()
-        if (self.t + 10) % 375 == 0:
-            # auto square-off at 3:20 pm and skip to next day
+        if self._is_day_over():
+            # auto square-off and skip to next day
             # Check of trades taken
             self.tradable = False
             if len(self.positions) != 0:
@@ -323,9 +361,8 @@ class StockTradingEnv(gym.Env):
                     # Going Long
                     self.positions.append(float(current_price))
                     self.set_qty(float(current_price))
-                    reward = 1
                     self.short = False
-                    self.balance -= self.positions[-1] * self.qty
+                    self.balance -= mean(self.positions) * self.qty
                     message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Long",
                                                                    round(reward, 3))
                     self.action_record = message
@@ -342,23 +379,17 @@ class StockTradingEnv(gym.Env):
 
             else:
                 # exit from Short Sell
-                profits = 0
-                profits += cal_profit_w_brokerage(float(current_price), mean(self.positions),
-                                                  self.qty)
-
-                avg_profit = profits / self.qty
-                profit_percent = (avg_profit / mean(self.positions)) * 100
-                self.amt += self.amt * (profit_percent / 100)
-                self.balance = self.amt
+                profits = cal_profit_w_brokerage(float(current_price), mean(self.positions), self.qty)
+                profit_per_stock = profits / self.qty
+                profit_percent = (profit_per_stock / mean(self.positions)) * 100
+                self.balance += (mean(self.positions) * self.qty) + profits
                 if profit_percent > 0.0:
                     self.wins += 1
                 else:
                     self.losses += 1
                 self.profit_per += round(profit_percent, 3)
-                if profit_percent > 0.3 or profit_percent < -0.3:
-                    reward += self.getReward(profit_percent) * 300
-                else:
-                    reward += self.getReward(profit_percent) * 30
+                reward += self.get_reward(profit_percent)
+
                 # Save the record of exit
                 self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
                     self._current_timestamp(),
@@ -368,9 +399,9 @@ class StockTradingEnv(gym.Env):
                     round(profits, 2),
                     round(profit_percent, 3))
                 self.profits += profits
-                self.positions = []
+                self.positions.clear()
                 self.short = False
-                self.resetReward()
+                self.reset_reward()
                 self.qty = int(0)
                 message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
                                                                                 "Exit Short",
@@ -383,26 +414,22 @@ class StockTradingEnv(gym.Env):
 
         elif action_type == 0:  # hold
             if len(self.positions) > 0:
-                profits = 0
-                for p in self.positions:
-                    if self.short:
-                        profits += (p - float(current_price))
-                    else:
-                        profits += (float(current_price) - p)
+                profits = cal_profit_w_brokerage(float(current_price), mean(self.positions), self.qty)
+                profit_per_stock = profits / self.qty
+                profit_percent = (profit_per_stock / mean(self.positions)) * 100
 
-                avg_profit = profits / len(self.positions)
-                profit_percent = (avg_profit / mean(self.positions)) * 100
-                reward += self.getReward(profit_percent) * 0.01
+                # reward += self.get_reward(profit_percent) * 0.01  # 1/100 of the real profit
+
                 message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Hold",
                                                                round(reward, 3))
                 self.action_record = message
-                if self.enable_logging:
+                if self.enable_logging and not self._is_auto_hold:
                     self.logger.info(message)
 
             else:
                 self.action_record = "Thinking for next move!" if self.market_open else "##-------------##"
                 message = "{}: {}".format(self._current_timestamp(), self.action_record)
-                if self.enable_logging:
+                if self.enable_logging and not self._is_auto_hold:
                     self.logger.info(message)
 
         elif action_type == 2 and self.market_open:  # sell
@@ -411,9 +438,8 @@ class StockTradingEnv(gym.Env):
                 if self.tradable:
                     self.positions.append(float(current_price))
                     self.set_qty(float(current_price))
-                    reward = 1
                     self.short = True
-                    self.balance -= self.positions[-1] * self.qty
+                    self.balance -= mean(self.positions) * self.qty
                     message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Short",
                                                                    round(reward, 3))
                     self.action_record = message
@@ -430,23 +456,18 @@ class StockTradingEnv(gym.Env):
 
             else:
                 # exit from the Long position
-                profits = 0
-                profits += cal_profit_w_brokerage(mean(self.positions), float(current_price),
-                                                  self.qty)
+                profits = cal_profit_w_brokerage(mean(self.positions), float(current_price), self.qty)
+                profit_per_stock = profits / self.qty
+                profit_percent = (profit_per_stock / mean(self.positions)) * 100
+                self.balance += (mean(self.positions) * self.qty) + profits
 
-                avg_profit = profits / self.qty
-                profit_percent = (avg_profit / mean(self.positions)) * 100
-                self.amt += self.amt * (profit_percent / 100)
-                self.balance = self.amt
                 if profit_percent > 0.0:
                     self.wins += 1
                 else:
                     self.losses += 1
                 self.profit_per += round(profit_percent, 3)
-                if profit_percent > 0.3 or profit_percent < -0.3:
-                    reward += self.getReward(profit_percent) * 300
-                else:
-                    reward += self.getReward(profit_percent) * 30
+                reward += self.get_reward(profit_percent)
+
                 # Save the record of exit
                 self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
                     self._current_timestamp(),
@@ -456,9 +477,9 @@ class StockTradingEnv(gym.Env):
                     round(profits, 2),
                     round(profit_percent, 3))
                 self.profits += profits
-                self.positions = []
+                self.positions.clear()
                 self.short = False
-                self.resetReward()
+                self.reset_reward()
                 self.qty = int(0)
                 message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
                                                                                 "Exit Long",
@@ -469,16 +490,24 @@ class StockTradingEnv(gym.Env):
                     self.logger.info(self.position_record)
                     self.logger.info(message)
 
-        if (self.t + 10) % 375 == 0:
-            # close Market at 3:20 pm and skip to next day
+        if self._is_day_over():
+            # close Market and skip to next day
             if self.enable_logging:
                 self.logger.info("{} Market Closed".format(self._current_timestamp()))
             self.market_open = False
 
-        if (self.t + 1) % 375 == 0:
+        if self._is_day_over():
             self.market_open = True
             self.tradable = True
-            reward += self.profit_per * 1000  # Bonus for making a profit at the end of the day
+            # Log for the day
+            if self.enable_logging:
+                self.logger.info(
+                    "{}: Net_worth: {} Total Profits: {} Total Profit_Per: {}".format(
+                        self._current_timestamp(),
+                        round(self.net_worth[0], 2),
+                        round(self.profits, 2),
+                        round(self.profit_per, 3), ))
+
             self.daily_profit_per.append(round(self.profit_per, 3))
             self.profit_per = 0.0
             # Reset Profits for the day
@@ -487,39 +516,28 @@ class StockTradingEnv(gym.Env):
             self._set_optimal_box_size()
 
         self.position_value = 0
-        for _ in self.positions:
-            self.position_value += (float(current_price)) * self.qty
-        self.net_worths.append(self.balance + self.position_value)
+        self.position_value += (float(current_price)) * self.qty
+        self.net_worth.append(self.balance + self.position_value)
 
         if self.market_open:
-            if self.enable_logging:
+            if self.enable_logging and not self._is_auto_hold:
                 self.logger.info(
-                    "{}: {} Net_worth: {} Stk_Qty: {} Pos_Val: {} Profits: {} Profit_Per: {}".format(
+                    "{}: Balance: {} Net_worth: {} Stk_Qty: {} Pos_Val: {} Profits: {} Profit_Per: {}".format(
                         self._current_timestamp(),
-                        ((self.t + 1) % 375),
-                        round(self.net_worths[-1], 2),
+                        round(self.balance, 2),
+                        round(self.net_worth[0], 2),
                         round(self.qty),
                         round(self.position_value, 2),
                         round(self.profits, 2),
                         round(self.profit_per, 3), ))
 
-        # clip reward
-        reward = round(reward, 3)
+        # clip reward {-1 , 1}
+        reward = np.sign(reward)
 
         return reward
 
-    def _reward(self):
-        length = self.current_step
-        returns = np.diff(self.net_worths[-length:])
-
-        if np.count_nonzero(returns) < 1:
-            return 0
-        reward = 0
-
-        return reward if np.isfinite(reward) else 0
-
     def _done(self):
-        self.done = self.net_worths[-1] < self.initial_balance / 2 or self.current_step == len(
+        self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(
             self.exchange.data_frame) - 1
         return self.done
 
@@ -537,38 +555,36 @@ class StockTradingEnv(gym.Env):
 
     def reset(self):
         self.balance = self.initial_balance
-        self.stock_held = 0
-        self.frames = deque([], maxlen=self.stack_size)
+        self.frames.clear()
 
-        if int(self.look_back_window_size / 375) > 1:
-            self.current_step = int(375) * int(self.look_back_window_size / 375)
+        if int(self.look_back_window_size / 390) > 1:
+            self.current_step = int(390) * int(self.look_back_window_size / 390)
         else:
-            self.current_step = int(375)
+            self.current_step = int(390)
 
         self.exchange.reset()
 
         self._set_optimal_box_size()
         self._set_history()
 
-        self.net_worths = [self.initial_balance] * (self.current_step + 1)
+        self.net_worth.clear()
         self.initial_step = self.current_step
+        self._is_auto_hold = False
         self.done = False
-        self.t = int(0)
         self.wins = int(0)
         self.losses = int(0)
         self.short = False
         self.tradable = True
         self.market_open = True
-        self.amt = self.initial_balance
         self.qty = int(0)
         self.profit_per = float(0.0)
-        self.daily_profit_per = []
+        self.daily_profit_per.clear()
         self.profits = int(0)
-        self.positions = []
+        self.positions.clear()
         self.position_value = int(0)
         self.action_record = ""
         self.position_record = ""
-        self.rewards = deque(np.zeros(1, dtype=float))
+        self.rewards.clear()
         self.sum = 0.0
         self.denominator = np.exp(-1 * self.decay_rate)
 
@@ -590,10 +606,7 @@ class StockTradingEnv(gym.Env):
         return obs, reward, self.done, {}
 
     def render(self, mode='system'):
-        if mode == 'system':
-            print('Price: ' + str(self._current_price()))
-            print('\t\t' + '=' * 20 + ' History ' + '=' * 20)
-            print('Net worth: ' + str(self.net_worths[-1]))
+        pass
 
     def close(self):
         if self.viewer is not None:
