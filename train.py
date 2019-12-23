@@ -19,7 +19,7 @@ from pytorch_neat.recurrent_net import RecurrentNet
 
 params = {
     "initial_balance": 10000,
-    "look_back_window_size": 10,
+    "look_back_window_size": 375 * 10,  # US 390 * 10 | 375 * 10
     "enable_env_logging": False,
     "observation_window": 32,
     "frame_stack_size": 1,
@@ -27,7 +27,7 @@ params = {
     "hold_reward": False,
 }
 
-max_env_steps = 20000
+max_env_steps = 200000
 
 resume = False
 restore_file = "neat-checkpoint-0"

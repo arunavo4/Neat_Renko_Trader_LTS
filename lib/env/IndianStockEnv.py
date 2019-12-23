@@ -63,7 +63,6 @@ class IndianStockEnv(gym.Env):
         self.initial_balance = config["initial_balance"]
 
         # Some Market_specific config
-        config['look_back_window_size'] *= 375
         config['market'] = 'in_mkt'
 
         self.exchange = StaticExchange(config=config)

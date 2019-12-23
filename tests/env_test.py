@@ -10,7 +10,7 @@ from lib.env.IndianStockEnv import IndianStockEnv
 
 env_config = {
     "initial_balance": 10000,
-    "look_back_window_size": 10,
+    "look_back_window_size": 375 * 10,
     "enable_env_logging": True,
     "observation_window": 32,
     "frame_stack_size": 1,

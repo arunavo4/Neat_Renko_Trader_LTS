@@ -1,6 +1,7 @@
 import pandas as pd
 import random as rand
 from glob import glob
+import time
 import os
 
 
@@ -8,6 +9,7 @@ class StaticExchange:
     """A static instrument exchange, in which the price history is loaded from a csv file"""
 
     def __init__(self, config, **kwargs):
+        rand.seed(time.time())
         self.data_frame = pd.DataFrame()
         self.market = config['market']
         self._parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
