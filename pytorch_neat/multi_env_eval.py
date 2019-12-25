@@ -71,10 +71,11 @@ class MultiEnvEvaluator:
             for i, (env, action, done) in enumerate(zip(self.envs, actions, dones)):
                 if not done:
                     state, reward, done, _ = env.step(action)
-                    fitnesses[i] += reward
-                    if not done:
-                        states[i] = state
+                    # fitnesses[i] += reward    //TODO: Basically trying to use ultimate P&L as fitness for each genome
+                    states[i] = state
                     dones[i] = done
+                if done:
+                    fitnesses[i] = (env.net_worth[0] - env.initial_balance)
 
             if all(dones):
                 for i, (env, done) in enumerate(zip(self.envs, dones)):
@@ -82,10 +83,11 @@ class MultiEnvEvaluator:
                         avg_profit = 0.0
                     else:
                         avg_profit = round(mean(env.daily_profit_per), 3)
-                    message = "Env #:{} Genome_id # :{} Fitness :{} Final Amt :{} Days :{} Avg Daily Profit :{} %".format(
-                        i, genome_id,
+                    message = "Env #:{} Stock#:{} Genome_id # :{} Fitness :{} Final Amt :{} Days :{} Avg Daily Profit " \
+                              ":{} %".format(
+                        i, env.stock_name, genome_id,
                         round(fitnesses[i], 2),
-                        round(env.amt, 2), len(env.daily_profit_per),
+                        round(env.net_worth[0], 2), len(env.daily_profit_per),
                         avg_profit)
                     print(message)
                     logger.info(message)

@@ -3,11 +3,6 @@
     This version of the Env has specific Enhancements for Intra-day Trading
     ***** This is the most Optimized version till date *****
 
-    ****** Important Reward Change ******
-    Moving to Simple Reward Scheme of +1 / -1.
-    This will standardize the whole Environment Experiments
-    across the different Algorithms.
-
 """
 
 # logging
@@ -24,7 +19,7 @@ import talib
 from gym import spaces
 
 from lib.generator.static_generator import StaticExchange
-from lib.renko.Renko import get_optimal_box_size
+# from lib.renko.Renko import get_optimal_box_size
 
 
 def setup_logger(name, log_file, level=logging.INFO):
@@ -114,6 +109,7 @@ class USStockEnv(gym.Env):
         self.rewards = deque(np.zeros(1, dtype=float))
         self.net_worth = deque([self.initial_balance], maxlen=1)
         self.initial_step = self.current_step
+        self.stock_name = 'NAN'
         self.sum = 0.0
         self.denominator = np.exp(-1 * self.decay_rate)
 
@@ -207,9 +203,9 @@ class USStockEnv(gym.Env):
 
         # If we have enough of data
         if hlc_history.shape[0] > atr_timeperiod:
-            brick_size = np.median(talib.ATR(high=np.double(hlc_history.iloc[:, 0]),
-                                             low=np.double(hlc_history.iloc[:, 1]),
-                                             close=np.double(hlc_history.iloc[:, 2]),
+            brick_size = np.median(talib.ATR(high=np.double(hlc_history.high),
+                                             low=np.double(hlc_history.low),
+                                             close=np.double(hlc_history.close),
                                              timeperiod=atr_timeperiod)[atr_timeperiod:])
 
         return brick_size
@@ -277,6 +273,7 @@ class USStockEnv(gym.Env):
         obs = np.zeros([self.obs_window, self.obs_window, self.stack_size], dtype=np.uint8)
         for i in range(self.stack_size):
             obs[:, :, i] = self.frames[i]
+        obs = np.ndarray.flatten(obs)
         return obs
 
     def _next_observation(self):
@@ -307,7 +304,7 @@ class USStockEnv(gym.Env):
         return self._get_ob()
 
     @staticmethod
-    def _transform_obs(obs, resize=False, width=84, height=84, binary=False):
+    def _transform_obs(obs, resize=False, width=32, height=32, binary=False):
         obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
 
         if binary:
@@ -328,10 +325,14 @@ class USStockEnv(gym.Env):
         return pd.to_datetime(self._current_timestamp()).date()
 
     def _next_date(self):
-        return pd.to_datetime(self.exchange.data_frame.index[self.current_step+1]).date()
+        if self.current_step + 1 != len(self.exchange.data_frame) - 1:
+            return pd.to_datetime(self.exchange.data_frame.index[self.current_step+1]).date()
 
     def _is_day_over(self):
-        return self._current_date() != self._next_date()
+        if self.current_step + 1 != len(self.exchange.data_frame) - 1:
+            return self._current_date() != self._next_date()
+        else:
+            return True
 
     def _take_action(self, action):
         current_price = self._current_price()
@@ -408,6 +409,10 @@ class USStockEnv(gym.Env):
                                                                                 round(reward, 3),
                                                                                 round(profit_percent, 2))
                 self.action_record = message
+
+                # Set Optimal Box Size
+                self._set_optimal_box_size()
+
                 if self.enable_logging:
                     self.logger.info(self.position_record)
                     self.logger.info(message)
@@ -486,6 +491,10 @@ class USStockEnv(gym.Env):
                                                                                 round(reward, 3),
                                                                                 round(profit_percent, 2))
                 self.action_record = message
+
+                # Set Optimal Box Size
+                self._set_optimal_box_size()
+
                 if self.enable_logging:
                     self.logger.info(self.position_record)
                     self.logger.info(message)
@@ -537,7 +546,7 @@ class USStockEnv(gym.Env):
         return reward
 
     def clip_reward(self, reward):
-        return reward / self.brick_size_per
+        return reward / 1.0
 
     def _done(self):
         self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(
@@ -553,8 +562,8 @@ class USStockEnv(gym.Env):
     def _set_optimal_box_size(self):
         current_idx = self.current_step
         past_data = self.exchange.data_frame[-self.look_back_window_size + current_idx:current_idx]
-
-        self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))
+        # self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))  # Using Optimal_brick_size
+        self.set_brick_size(auto=True, hlc_history=past_data)  # Using ATR
         self.brick_size_per = round((self.brick_size/self._current_price()) * 100, 4)
 
     def reset(self):
@@ -572,7 +581,7 @@ class USStockEnv(gym.Env):
         else:
             self.current_step = int(390)
 
-        self.exchange.reset()
+        self.stock_name = self.exchange.reset()
 
         self._set_optimal_box_size()
         self._set_history()

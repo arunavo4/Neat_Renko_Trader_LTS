@@ -13,7 +13,7 @@ from os import path
 import pickle
 from utils.reporter import LoggerReporter
 from lib.env.IndianStockEnv import IndianStockEnv
-
+from lib.env.USStockEnv import USStockEnv
 from pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.recurrent_net import RecurrentNet
 

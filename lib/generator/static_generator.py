@@ -9,12 +9,12 @@ class StaticExchange:
     """A static instrument exchange, in which the price history is loaded from a csv file"""
 
     def __init__(self, config, **kwargs):
-        rand.seed(time.time())
         self.data_frame = pd.DataFrame()
         self.market = config['market']
         self._parent_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         self._train_dir = os.path.join(self._parent_dir, 'data', 'dataset', self.market, 'Train_data')
         self._test_dir = os.path.join(self._parent_dir, 'data', 'dataset', self.market, 'Test_data')
+        self._current_stock = 'NAN'
         self._file_paths = []
         self.load_file_names()
         self.reset()
@@ -24,6 +24,7 @@ class StaticExchange:
 
     def load_csv(self):
         _file_path = rand.choice(self._file_paths)
+        self._current_stock = _file_path.split('/')[-1].split('.')[0]
         if os.path.exists(_file_path):
             self.data_frame = pd.read_csv(_file_path)
             if self.market == 'in_mkt':
@@ -44,3 +45,5 @@ class StaticExchange:
     def reset(self):
         self.data_frame = pd.DataFrame()
         self.load_csv()
+
+        return self._current_stock

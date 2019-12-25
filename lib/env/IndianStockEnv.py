@@ -18,7 +18,7 @@ import talib
 from gym import spaces
 
 from lib.generator.static_generator import StaticExchange
-from lib.renko.Renko import get_optimal_box_size
+# from lib.renko.Renko import get_optimal_box_size
 
 
 def setup_logger(name, log_file, level=logging.INFO):
@@ -109,6 +109,7 @@ class IndianStockEnv(gym.Env):
         self.rewards = deque(np.zeros(1, dtype=float))
         self.net_worth = deque([self.initial_balance], maxlen=1)
         self.initial_step = self.current_step
+        self.stock_name = 'NAN'
         self.sum = 0.0
         self.denominator = np.exp(-1 * self.decay_rate)
 
@@ -130,7 +131,7 @@ class IndianStockEnv(gym.Env):
     # Setting brick size. Auto mode is preferred, it uses history
     def set_brick_size(self, hlc_history=None, auto=True, brick_size=10.0):
         if auto:
-            self.brick_size = self.__get_optimal_brick_size(hlc_history.iloc[:, [0, 1, 2]])
+            self.brick_size = self.__get_optimal_brick_size(hlc_history)
         else:
             self.brick_size = brick_size
 
@@ -202,9 +203,9 @@ class IndianStockEnv(gym.Env):
 
         # If we have enough of data
         if hlc_history.shape[0] > atr_timeperiod:
-            brick_size = np.median(talib.ATR(high=np.double(hlc_history.iloc[:, 0]),
-                                             low=np.double(hlc_history.iloc[:, 1]),
-                                             close=np.double(hlc_history.iloc[:, 2]),
+            brick_size = np.median(talib.ATR(high=np.double(hlc_history.high),
+                                             low=np.double(hlc_history.low),
+                                             close=np.double(hlc_history.close),
                                              timeperiod=atr_timeperiod)[atr_timeperiod:])
 
         return brick_size
@@ -324,10 +325,14 @@ class IndianStockEnv(gym.Env):
         return pd.to_datetime(self._current_timestamp()).date()
 
     def _next_date(self):
-        return pd.to_datetime(self.exchange.data_frame.index[self.current_step+1]).date()
+        if self.current_step + 1 != len(self.exchange.data_frame) - 1:
+            return pd.to_datetime(self.exchange.data_frame.index[self.current_step+1]).date()
 
     def _is_day_over(self):
-        return self._current_date() != self._next_date()
+        if self.current_step + 1 != len(self.exchange.data_frame) - 1:
+            return self._current_date() != self._next_date()
+        else:
+            return True
 
     def _take_action(self, action):
         current_price = self._current_price()
@@ -404,6 +409,10 @@ class IndianStockEnv(gym.Env):
                                                                                 round(reward, 3),
                                                                                 round(profit_percent, 2))
                 self.action_record = message
+
+                # Set Optimal Box Size
+                self._set_optimal_box_size()
+
                 if self.enable_logging:
                     self.logger.info(self.position_record)
                     self.logger.info(message)
@@ -482,6 +491,10 @@ class IndianStockEnv(gym.Env):
                                                                                 round(reward, 3),
                                                                                 round(profit_percent, 2))
                 self.action_record = message
+
+                # Set Optimal Box Size
+                self._set_optimal_box_size()
+
                 if self.enable_logging:
                     self.logger.info(self.position_record)
                     self.logger.info(message)
@@ -533,11 +546,10 @@ class IndianStockEnv(gym.Env):
         return reward
 
     def clip_reward(self, reward):
-        return reward / self.brick_size_per
+        return reward / 1.0
 
     def _done(self):
-        self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(
-            self.exchange.data_frame) - 1
+        self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(self.exchange.data_frame)-1
         return self.done
 
     def _set_history(self):
@@ -550,7 +562,8 @@ class IndianStockEnv(gym.Env):
         current_idx = self.current_step
         past_data = self.exchange.data_frame[-self.look_back_window_size + current_idx:current_idx]
 
-        self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))
+        # self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))  # Using Optimal_brick_size
+        self.set_brick_size(auto=True, hlc_history=past_data)  # Using ATR
         self.brick_size_per = round((self.brick_size/self._current_price()) * 100, 4)
 
     def reset(self):
@@ -568,7 +581,7 @@ class IndianStockEnv(gym.Env):
         else:
             self.current_step = int(375)
 
-        self.exchange.reset()
+        self.stock_name = self.exchange.reset()
 
         self._set_optimal_box_size()
         self._set_history()
