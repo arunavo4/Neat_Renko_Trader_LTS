@@ -7,6 +7,7 @@ import time
 from statistics import mean
 from lib.env.USStockEnv import USStockEnv
 from lib.env.IndianStockEnv import IndianStockEnv
+from lib.env.TraderRenkoEnv_v3_lite import StockTradingEnv
 
 env_config = {
     "initial_balance": 10000,
@@ -18,7 +19,7 @@ env_config = {
     "hold_reward": False,
 }
 
-env = IndianStockEnv(env_config)
+env = StockTradingEnv(env_config)
 
 observation = env.reset()
 

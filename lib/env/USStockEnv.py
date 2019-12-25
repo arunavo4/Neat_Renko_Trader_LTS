@@ -197,8 +197,7 @@ class USStockEnv(gym.Env):
             return self.__renko_rule(last_price)
 
     # Simple method to get optimal brick size based on ATR
-    @staticmethod
-    def __get_optimal_brick_size(hlc_history, atr_timeperiod=14):
+    def __get_optimal_brick_size(self, hlc_history, atr_timeperiod=14):
         brick_size = 0.0
 
         # If we have enough of data
@@ -208,7 +207,7 @@ class USStockEnv(gym.Env):
                                              close=np.double(hlc_history.close),
                                              timeperiod=atr_timeperiod)[atr_timeperiod:])
 
-        return brick_size
+        return round(brick_size, 4)
 
     def get_renko_prices(self):
         return self.renko_prices
@@ -303,8 +302,7 @@ class USStockEnv(gym.Env):
             self._transform_obs(self._generate_color_graph(), width=self.obs_window, height=self.obs_window))
         return self._get_ob()
 
-    @staticmethod
-    def _transform_obs(obs, resize=False, width=32, height=32, binary=False):
+    def _transform_obs(self, obs, resize=False, width=32, height=32, binary=False):
         obs = cv2.cvtColor(obs, cv2.COLOR_RGB2GRAY)
 
         if binary:
