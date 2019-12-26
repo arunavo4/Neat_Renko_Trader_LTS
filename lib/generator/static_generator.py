@@ -22,8 +22,9 @@ class StaticExchange:
     def load_file_names(self):
         self._file_paths = glob(self._train_dir + '/*.csv')
 
-    def load_csv(self):
-        _file_path = rand.choice(self._file_paths)
+    def load_csv(self, choice=0):
+        choice = choice % len(self._file_paths)
+        _file_path = self._file_paths[choice]
         self._current_stock = _file_path.split('/')[-1].split('.')[0]
         if os.path.exists(_file_path):
             self.data_frame = pd.read_csv(_file_path)
@@ -42,8 +43,8 @@ class StaticExchange:
         else:
             print("File not Found!")
 
-    def reset(self):
+    def reset(self, choice=0):
         self.data_frame = pd.DataFrame()
-        self.load_csv()
+        self.load_csv(choice)
 
         return self._current_stock

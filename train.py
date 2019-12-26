@@ -60,19 +60,19 @@ def run(n_generations, n_processes):
 
     if n_processes > 1:
 
-        def eval_genomes(genomes, config):
+        def eval_genomes(genomes, config, generation):
             with Pool(processes=n_processes) as pool:
                 fitnesses = pool.starmap(
-                    evaluator.eval_genome, ((genome_id, genome, config) for genome_id, genome in genomes)
+                    evaluator.eval_genome, ((genome_id, genome, config, generation) for genome_id, genome in genomes)
                 )
                 for (genome_id, genome), fitness in zip(genomes, fitnesses):
                     genome.fitness = fitness
 
     else:
-        def eval_genomes(genomes, config):
+        def eval_genomes(genomes, config, generation):
             for i, (genome_id, genome) in enumerate(genomes):
                 try:
-                    genome.fitness = evaluator.eval_genome(genome_id, genome, config)
+                    genome.fitness = evaluator.eval_genome(genome_id, genome, config, generation)
                 except Exception as e:
                     print(genome)
                     raise e

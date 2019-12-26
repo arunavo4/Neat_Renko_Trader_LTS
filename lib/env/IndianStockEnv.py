@@ -563,7 +563,7 @@ class IndianStockEnv(gym.Env):
         self.set_brick_size(auto=True, hlc_history=past_data)  # Using ATR
         self.brick_size_per = round((self.brick_size/self._current_price()) * 100, 4)
 
-    def reset(self):
+    def reset(self, gen=0):
         self.balance = self.initial_balance
         self.source_prices = []
         self.renko_prices = []
@@ -578,7 +578,7 @@ class IndianStockEnv(gym.Env):
         else:
             self.current_step = int(375)
 
-        self.stock_name = self.exchange.reset()
+        self.stock_name = self.exchange.reset(choice=gen)
 
         self._set_optimal_box_size()
         self._set_history()
