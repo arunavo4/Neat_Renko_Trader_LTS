@@ -1,13 +1,12 @@
 ![](https://img.shields.io/badge/status-Active-green)
 
-## NEAT Trader on Gym Env
+### NEAT Based Trader on Renko Graphs
 
-#### This is based on the knowledge gained from previous experiments.
-#### And Running on the newly developed Gym Env.
+The Basic idea for this Trader is to look into a square of `32x32` Obs Space of past Renko Graph and trade a given stock `action: Buy | Sell | Hold`.
 
-## Trader Gym Env
+This is based off implementation of NEAT from `neat-python` and also uses the pytorch version of `NEAT` from `UBER` for the neural network `RNN`.
 
-##### Observation : Price (ohlc) + technical indicators + patterns + account_history
-##### Observations scaled at runtime with a `look_back_window_size`
-##### Reward: `Weighted_Unrealised_Profit` with some hacks to make the agent perform better.     
-##### Output : Buy Hold Sell. 
+#### Further Development
+This project is gonna be superseded by the use of `Weight Agnostic Neural Networks` Version of `NEAT` from Google DeepMind and also the `DeepGA` from `Uber`.
+
+  
