@@ -1,11 +1,9 @@
 """
-###############   Parallel Trainer   ###############
+###############  Multiprocessing Parallel Trainer  ###############
 
-# Simple Neat implementation in pytorch
-# This is a Trader where it just looks into its past history nad the current position value and trades accordingly.
 """
 
-import multiprocessing
+from multiprocessing import Pool
 
 import numpy as np
 import neat
@@ -61,14 +59,14 @@ def run(n_generations, n_processes):
         make_net, activate_net, make_env=make_env, max_env_steps=max_env_steps, env_parms=params)
 
     if n_processes > 1:
-        pool = multiprocessing.Pool(processes=n_processes)
 
         def eval_genomes(genomes, config):
-            fitnesses = pool.starmap(
-                evaluator.eval_genome, ((genome_id, genome, config) for genome_id, genome in genomes)
-            )
-            for (genome_id, genome), fitness in zip(genomes, fitnesses):
-                genome.fitness = fitness
+            with Pool(processes=n_processes) as pool:
+                fitnesses = pool.starmap(
+                    evaluator.eval_genome, ((genome_id, genome, config) for genome_id, genome in genomes)
+                )
+                for (genome_id, genome), fitness in zip(genomes, fitnesses):
+                    genome.fitness = fitness
 
     else:
         def eval_genomes(genomes, config):
@@ -108,4 +106,4 @@ def run(n_generations, n_processes):
 
 
 if __name__ == "__main__":
-        run(n_generations=2, n_processes=1)
+        run(n_generations=2, n_processes=2)
