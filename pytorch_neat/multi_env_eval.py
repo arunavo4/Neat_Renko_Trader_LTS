@@ -75,8 +75,7 @@ class MultiEnvEvaluator:
                     states[i] = state
                     dones[i] = done
                 if done:
-                    fitnesses[i] = round(mean(env.daily_profit_per)*100, 3)
-                    # fitnesses[i] = (env.net_worth[0] - env.initial_balance)   Doesn't work initial stages.
+                    fitnesses[i] = env.net_worth[0]     # Fitness Cannot be Negative
 
             if all(dones):
                 for i, (env, done) in enumerate(zip(self.envs, dones)):
