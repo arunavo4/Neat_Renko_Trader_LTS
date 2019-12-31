@@ -5,21 +5,21 @@ import cv2
 import gym
 import time
 from statistics import mean
-from lib.env.USStockEnv import USStockEnv
-from lib.env.IndianStockEnv import IndianStockEnv
-from lib.env.TraderRenkoEnv_v3_lite import StockTradingEnv
+from lib.env.StockTraderEnv import StockTraderEnv
 
 env_config = {
     "initial_balance": 10000,
-    "look_back_window_size": 375 * 10,
-    "enable_env_logging": True,
+    "day_step_size": 375,  # IN 375 | US 390
+    "look_back_window_size": 375 * 10,  # US 390 * 10 | 375 * 10
+    "enable_env_logging": False,
     "observation_window": 32,
     "frame_stack_size": 1,
     "use_leverage": False,
     "hold_reward": False,
+    "market": 'in_mkt',  # 'in_mkt' | 'us_mkt'
 }
 
-env = StockTradingEnv(env_config)
+env = StockTraderEnv(env_config)
 
 observation = env.reset()
 

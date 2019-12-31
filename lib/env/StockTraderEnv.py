@@ -1,8 +1,7 @@
 """
-    ****** US Version of the Stock Trader ******
+    ****** Universal Version of the Stock Trader ******
     This version of the Env has specific Enhancements for Intra-day Trading
-    ***** This is the most Optimized version till date *****
-
+    *** This is the most Optimized version till date ***
 """
 
 # logging
@@ -36,6 +35,7 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 
+# ***** Zerodha Brokerage *****
 # Func to calculate brokerage
 def cal_profit_w_brokerage(buy_price, sell_price, qty):
     turnover = (buy_price * qty) + (sell_price * qty)
@@ -52,18 +52,15 @@ def cal_profit_w_brokerage(buy_price, sell_price, qty):
 np.warnings.filterwarnings('ignore')
 
 
-class USStockEnv(gym.Env):
-    """A Stock trading environment for US Stock Market"""
+class StockTraderEnv(gym.Env):
+    """A Stock trading environment for Stock Market"""
     metadata = {'render.modes': ['human', 'system', 'none']}
     viewer = None
 
     def __init__(self, config):
-        super(USStockEnv, self).__init__()
+        super(StockTraderEnv, self).__init__()
 
         self.initial_balance = config["initial_balance"]
-
-        # Some Market_specific config
-        config['market'] = 'us_mkt'
 
         self.exchange = StaticExchange(config=config)
 
@@ -90,7 +87,8 @@ class USStockEnv(gym.Env):
         self.decay_rate = 1e-2
         self._is_auto_hold = False
         self.done = False
-        self.current_step = int(390)
+        self.day_step_size = config['day_step_size']
+        self.current_step = int(self.day_step_size)
         self.wins = int(0)
         self.losses = int(0)
         self.qty = int(0)
@@ -108,17 +106,16 @@ class USStockEnv(gym.Env):
         self.position_record = ""
         self.rewards = deque(np.zeros(1, dtype=float))
         self.net_worth = deque([self.initial_balance], maxlen=1)
-        self.initial_step = self.current_step
         self.stock_name = 'NAN'
         self.sum = 0.0
         self.denominator = np.exp(-1 * self.decay_rate)
 
-        self.look_back_window_size = config['look_back_window_size'] or 390 * 10
-        self.obs_window = config['observation_window'] or 84
+        self.look_back_window_size = config['look_back_window_size'] or self.day_step_size * 10
+        self.obs_window = config['observation_window'] or 32
         self.hold_reward = config['hold_reward']
 
         # Frame Stack
-        self.stack_size = config['frame_stack_size'] or 4
+        self.stack_size = config['frame_stack_size'] or 1
         self.frames = deque([], maxlen=self.stack_size)
 
         # Actions of the format Buy, Sell , Hold .
@@ -131,7 +128,7 @@ class USStockEnv(gym.Env):
     # Setting brick size. Auto mode is preferred, it uses history
     def set_brick_size(self, hlc_history=None, auto=True, brick_size=10.0):
         if auto:
-            self.brick_size = self.__get_optimal_brick_size(hlc_history.iloc[:, [0, 1, 2]])
+            self.brick_size = self.__get_optimal_brick_size(hlc_history)
         else:
             self.brick_size = brick_size
 
@@ -342,7 +339,7 @@ class USStockEnv(gym.Env):
         self.action_record = ""
         # set next time
         if self._is_day_over():
-            # auto square-off and skip to next day
+            # auto square-off at 3:20 pm and skip to next day
             # Check of trades taken
             self.tradable = False
             if len(self.positions) != 0:
@@ -498,7 +495,7 @@ class USStockEnv(gym.Env):
                     self.logger.info(message)
 
         if self._is_day_over():
-            # close Market and skip to next day
+            # close Market at 3:20 pm and skip to next day
             if self.enable_logging:
                 self.logger.info("{} Market Closed".format(self._current_timestamp()))
             self.market_open = False
@@ -547,8 +544,7 @@ class USStockEnv(gym.Env):
         return reward / 1.0
 
     def _done(self):
-        self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(
-            self.exchange.data_frame) - 1
+        self.done = self.net_worth[0] < self.initial_balance / 2 or self.current_step == len(self.exchange.data_frame)-1
         return self.done
 
     def _set_history(self):
@@ -560,6 +556,7 @@ class USStockEnv(gym.Env):
     def _set_optimal_box_size(self):
         current_idx = self.current_step
         past_data = self.exchange.data_frame[-self.look_back_window_size + current_idx:current_idx]
+
         # self.set_brick_size(auto=False, brick_size=get_optimal_box_size(past_data))  # Using Optimal_brick_size
         self.set_brick_size(auto=True, hlc_history=past_data)  # Using ATR
         self.brick_size_per = round((self.brick_size/self._current_price()) * 100, 4)
@@ -574,10 +571,10 @@ class USStockEnv(gym.Env):
 
         self.frames.clear()
 
-        if int(self.look_back_window_size / 390) > 1:
-            self.current_step = int(390) * int(self.look_back_window_size / 390)
+        if int(self.look_back_window_size / self.day_step_size) > 1:
+            self.current_step = int(self.day_step_size) * int(self.look_back_window_size / self.day_step_size)
         else:
-            self.current_step = int(390)
+            self.current_step = int(self.day_step_size)
 
         self.stock_name = self.exchange.reset()
 
@@ -585,7 +582,6 @@ class USStockEnv(gym.Env):
         self._set_history()
 
         self.net_worth.clear()
-        self.initial_step = self.current_step
         self._is_auto_hold = False
         self.done = False
         self.wins = int(0)

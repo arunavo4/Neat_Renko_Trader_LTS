@@ -12,18 +12,20 @@ import neat
 from os import path
 import pickle
 from utils.reporter import LoggerReporter
-from lib.env.IndianStockEnv import IndianStockEnv
+from lib.env.StockTraderEnv import StockTraderEnv
 from pytorch_neat.multi_env_eval import MultiEnvEvaluator
 from pytorch_neat.recurrent_net import RecurrentNet
 
 params = {
     "initial_balance": 10000,
+    "day_step_size": 375,       # IN 375 | US 390
     "look_back_window_size": 375 * 10,  # US 390 * 10 | 375 * 10
     "enable_env_logging": False,
     "observation_window": 32,
     "frame_stack_size": 1,
     "use_leverage": False,
     "hold_reward": False,
+    "market": 'in_mkt',  # 'in_mkt' | 'us_mkt'
 }
 
 max_env_steps = 200000
@@ -33,7 +35,7 @@ restore_file = "neat-checkpoint-0"
 
 
 def make_env(env_params):
-    return IndianStockEnv(env_params)
+    return StockTraderEnv(env_params)
 
 
 def make_net(genome, config, bs):
