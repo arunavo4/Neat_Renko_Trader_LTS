@@ -50,11 +50,11 @@ class MultiEnvEvaluator:
         self.batch_size = batch_size
         self.max_env_steps = max_env_steps
 
-    def eval_genome(self, genome_id, genome, config, debug=False):
+    def eval_genome(self, genome_id, genome, config, generation, debug=False):
         net = self.make_net(genome, config, self.batch_size)
 
         fitnesses = np.zeros(self.batch_size)
-        states = [env.reset() for env in self.envs]
+        states = [env.reset(generation) for env in self.envs]
         dones = [False] * self.batch_size
 
         step_num = self.envs[0].current_step
@@ -75,7 +75,7 @@ class MultiEnvEvaluator:
                     states[i] = state
                     dones[i] = done
                 if done:
-                    fitnesses[i] = (env.net_worth[0] - env.initial_balance)
+                    fitnesses[i] = env.net_worth[0]     # Fitness Cannot be Negative
 
             if all(dones):
                 for i, (env, done) in enumerate(zip(self.envs, dones)):
@@ -83,12 +83,9 @@ class MultiEnvEvaluator:
                         avg_profit = 0.0
                     else:
                         avg_profit = round(mean(env.daily_profit_per), 3)
-                    message = "Env #:{} Stock#:{} Genome_id # :{} Fitness :{} Final Amt :{} Days :{} Avg Daily Profit " \
-                              ":{} %".format(
-                        i, env.stock_name, genome_id,
-                        round(fitnesses[i], 2),
-                        round(env.net_worth[0], 2), len(env.daily_profit_per),
-                        avg_profit)
+                    message = "Gen#: {} Env #:{} Stock#:{} Genome_id # :{} Fitness :{} Final Amt :{} Days :{} Avg Daily Profit :{} %".format(
+                        generation, i, env.stock_name, genome_id, round(fitnesses[i], 2), round(env.net_worth[0], 2),
+                        len(env.daily_profit_per), avg_profit)
                     print(message)
                     logger.info(message)
                 break
