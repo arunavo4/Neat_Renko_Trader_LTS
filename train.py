@@ -108,4 +108,4 @@ def run(n_generations, n_processes):
 
 
 if __name__ == "__main__":
-        run(n_generations=2, n_processes=2)
+    run(n_generations=2, n_processes=10)
