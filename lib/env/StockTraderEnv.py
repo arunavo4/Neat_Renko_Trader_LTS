@@ -359,18 +359,19 @@ class StockTraderEnv(gym.Env):
                     self.set_qty(float(current_price))
                     self.short = False
                     self.balance -= mean(self.positions) * self.qty
-                    message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Long",
-                                                                   round(reward, 3))
-                    self.action_record = message
+
                     if self.enable_logging:
+                        message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Long",
+                                                                       round(reward, 3))
+                        self.action_record = message
                         self.logger.info(message)
 
             elif not self.short and len(self.positions) != 0:
                 # If stock has been already long
                 reward = 0
-                message = "{}: Don't try to go long more than once!".format(self._current_timestamp())
-                self.action_record = message
                 if self.enable_logging:
+                    message = "{}: Don't try to go long more than once!".format(self._current_timestamp())
+                    self.action_record = message
                     self.logger.info(message)
 
             else:
@@ -386,30 +387,30 @@ class StockTraderEnv(gym.Env):
                 self.profit_per += round(profit_percent, 3)
                 reward += self.get_reward(profit_percent)
 
-                # Save the record of exit
-                self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
-                    self._current_timestamp(),
-                    self.qty * -1,
-                    round(mean(self.positions), 2),
-                    round(float(current_price), 2),
-                    round(profits, 2),
-                    round(profit_percent, 3))
                 self.profits += profits
                 self.positions.clear()
                 self.short = False
                 self.reset_reward()
                 self.qty = int(0)
-                message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
-                                                                                "Exit Short",
-                                                                                round(reward, 3),
-                                                                                round(profit_percent, 2))
-                self.action_record = message
 
                 # Set Optimal Box Size
                 self._set_optimal_box_size()
 
                 if self.enable_logging:
+                    # Save the record of exit
+                    self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
+                        self._current_timestamp(),
+                        self.qty * -1,
+                        round(mean(self.positions), 2),
+                        round(float(current_price), 2),
+                        round(profits, 2),
+                        round(profit_percent, 3))
                     self.logger.info(self.position_record)
+                    message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
+                                                                                    "Exit Short",
+                                                                                    round(reward, 3),
+                                                                                    round(profit_percent, 2))
+                    self.action_record = message
                     self.logger.info(message)
 
         elif action_type == 0 and self.hold_reward:  # hold
@@ -420,16 +421,16 @@ class StockTraderEnv(gym.Env):
 
                 reward += self.get_reward(profit_percent) * 0.01  # 1/100 of the real profit
 
-                message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Hold",
-                                                               round(reward, 3))
-                self.action_record = message
                 if self.enable_logging and not self._is_auto_hold:
+                    message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Hold",
+                                                                   round(reward, 3))
+                    self.action_record = message
                     self.logger.info(message)
 
             else:
-                self.action_record = "Thinking for next move!" if self.market_open else "##-------------##"
-                message = "{}: {}".format(self._current_timestamp(), self.action_record)
                 if self.enable_logging and not self._is_auto_hold:
+                    self.action_record = "Thinking for next move!" if self.market_open else "##-------------##"
+                    message = "{}: {}".format(self._current_timestamp(), self.action_record)
                     self.logger.info(message)
 
         elif action_type == 2 and self.market_open:  # sell
@@ -440,18 +441,19 @@ class StockTraderEnv(gym.Env):
                     self.set_qty(float(current_price))
                     self.short = True
                     self.balance -= mean(self.positions) * self.qty
-                    message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Short",
-                                                                   round(reward, 3))
-                    self.action_record = message
+
                     if self.enable_logging:
+                        message = "{}: Action: {} ; Reward: {}".format(self._current_timestamp(), "Short",
+                                                                       round(reward, 3))
+                        self.action_record = message
                         self.logger.info(message)
 
             elif self.short and len(self.positions) != 0:
                 # If stock has been already short
                 reward = 0
-                message = "{}: Don't try to short more than once!".format(self._current_timestamp())
-                self.action_record = message
                 if self.enable_logging:
+                    message = "{}: Don't try to short more than once!".format(self._current_timestamp())
+                    self.action_record = message
                     self.logger.info(message)
 
             else:
@@ -468,30 +470,30 @@ class StockTraderEnv(gym.Env):
                 self.profit_per += round(profit_percent, 3)
                 reward += self.get_reward(profit_percent)
 
-                # Save the record of exit
-                self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
-                    self._current_timestamp(),
-                    self.qty,
-                    round(mean(self.positions), 2),
-                    round(float(current_price), 2),
-                    round(profits, 2),
-                    round(profit_percent, 3))
                 self.profits += profits
                 self.positions.clear()
                 self.short = False
                 self.reset_reward()
                 self.qty = int(0)
-                message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
-                                                                                "Exit Long",
-                                                                                round(reward, 3),
-                                                                                round(profit_percent, 2))
-                self.action_record = message
 
                 # Set Optimal Box Size
                 self._set_optimal_box_size()
 
                 if self.enable_logging:
+                    # Save the record of exit
+                    self.position_record = "{}: Qty : {} ; Avg: {} ; Ltp: {} ; P&L: {} ; %Chg: {}".format(
+                        self._current_timestamp(),
+                        self.qty,
+                        round(mean(self.positions), 2),
+                        round(float(current_price), 2),
+                        round(profits, 2),
+                        round(profit_percent, 3))
                     self.logger.info(self.position_record)
+                    message = "{}: Action: {} ; Reward: {} ; Profit_Per: {}".format(self._current_timestamp(),
+                                                                                    "Exit Long",
+                                                                                    round(reward, 3),
+                                                                                    round(profit_percent, 2))
+                    self.action_record = message
                     self.logger.info(message)
 
         if self._is_day_over():
